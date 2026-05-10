@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package dns.v1;
+
+option go_package = "github.com/domovonok/dns-manager/api/dns/v1;dnsv1";
+
+import "google/protobuf/empty.proto";
+import "validate/validate.proto";
+
+service DnsService {
+  rpc Add(AddRequest) returns (google.protobuf.Empty);
+
+  rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
+
+  rpc List(google.protobuf.Empty) returns (ListResponse);
+}
+
+message AddRequest {
+  string ip = 1 [(validate.rules).string.ip = true];
+}
+
+message RemoveRequest {
+  string ip = 1 [(validate.rules).string.ip = true];
+}
+
+message ListResponse {
+  repeated string ips = 1;
+}

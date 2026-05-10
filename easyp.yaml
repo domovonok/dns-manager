@@ -1,0 +1,27 @@
+lint:
+  use:
+    - DEFAULT
+
+deps:
+  - github.com/bufbuild/protoc-gen-validate
+
+generate:
+  inputs:
+    - directory: ./api
+
+  plugins:
+    - name: protoc-gen-go
+      out: .
+      opts:
+        paths: source_relative
+
+    - name: protoc-gen-go-grpc
+      out: .
+      opts:
+        paths: source_relative
+
+    - name: protoc-gen-validate
+      out: .
+      opts:
+        paths: source_relative
+        lang: go
