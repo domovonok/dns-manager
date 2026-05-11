@@ -12,7 +12,7 @@ import (
 )
 
 type Repository struct {
-	mx             sync.Mutex
+	mu             sync.Mutex
 	resolvConfPath string
 }
 
@@ -21,8 +21,8 @@ func New(resolvConfPath string) *Repository {
 }
 
 func (r *Repository) Add(_ context.Context, ip netip.Addr) error {
-	r.mx.Lock()
-	defer r.mx.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	data, err := os.ReadFile(r.resolvConfPath)
 	if err != nil {
@@ -49,8 +49,8 @@ func (r *Repository) Add(_ context.Context, ip netip.Addr) error {
 }
 
 func (r *Repository) Remove(_ context.Context, ip netip.Addr) error {
-	r.mx.Lock()
-	defer r.mx.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	data, err := os.ReadFile(r.resolvConfPath)
 	if err != nil {
@@ -77,8 +77,8 @@ func (r *Repository) Remove(_ context.Context, ip netip.Addr) error {
 }
 
 func (r *Repository) List(_ context.Context) ([]netip.Addr, error) {
-	r.mx.Lock()
-	defer r.mx.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	data, err := os.ReadFile(r.resolvConfPath)
 	if err != nil {
