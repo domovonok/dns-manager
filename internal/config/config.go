@@ -8,8 +8,9 @@ import (
 )
 
 type Server struct {
-	GRPCAddr        string `env:"GRPC_ADDR" envDefault:":8080"`
-	ResolveConfPath string `env:"RESOLV_CONF_PATH" envDefault:"/etc/resolv.conf"`
+	GRPCAddr                string        `env:"GRPC_ADDR" envDefault:":8080"`
+	ResolveConfPath         string        `env:"RESOLV_CONF_PATH" envDefault:"/etc/resolv.conf"`
+	GracefulShutdownTimeout time.Duration `env:"GRACEFUL_SHUTDOWN_TIMEOUT" envDefault:"10s"`
 }
 
 type Client struct {

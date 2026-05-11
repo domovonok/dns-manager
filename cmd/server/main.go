@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 	"os/signal"
 	"syscall"
+	"time"
 
 	dnsv1 "github.com/domovonok/dns-manager/api/dns/v1"
 	"github.com/domovonok/dns-manager/internal/config"
@@ -26,6 +28,12 @@ func main() {
 	if err != nil {
 		log.Fatalln("can not initialize logger:", err)
 	}
+	defer func() {
+		err := logger.Sync()
+		if err != nil {
+			log.Println("failed to sync logger:", err)
+		}
+	}()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -34,15 +42,15 @@ func main() {
 
 	handler := dns.New(logger, repo)
 
-	go runGrpc(cfg, logger, handler)
-
-	<-ctx.Done()
+	if err := runGrpc(ctx, cfg, logger, handler); err != nil {
+		logger.Fatal("grpc server error", zap.Error(err))
+	}
 }
 
-func runGrpc(cfg *config.Server, logger *zap.Logger, handler *dns.Handler) {
+func runGrpc(ctx context.Context, cfg *config.Server, logger *zap.Logger, handler *dns.Handler) error {
 	lis, err := net.Listen("tcp", cfg.GRPCAddr)
 	if err != nil {
-		logger.Fatal("can not open tcp socket", zap.Error(err))
+		return err
 	}
 
 	s := grpc.NewServer()
@@ -51,7 +59,39 @@ func runGrpc(cfg *config.Server, logger *zap.Logger, handler *dns.Handler) {
 	dnsv1.RegisterDnsServiceServer(s, handler)
 	logger.Info("grpc server listening at addr", zap.String("addr", lis.Addr().String()))
 
-	if err := s.Serve(lis); err != nil {
-		logger.Error("grpc server listen error", zap.Error(err))
+	serveErr := make(chan error, 1)
+	go func() {
+		err := s.Serve(lis)
+		if errors.Is(err, grpc.ErrServerStopped) {
+			err = nil
+		}
+		serveErr <- err
+	}()
+
+	select {
+	case err := <-serveErr:
+		return err
+	case <-ctx.Done():
+		logger.Info("grpc server shutdown started", zap.Duration("timeout", cfg.GracefulShutdownTimeout))
+
+		stopped := make(chan struct{})
+		go func() {
+			s.GracefulStop()
+			close(stopped)
+		}()
+
+		timer := time.NewTimer(cfg.GracefulShutdownTimeout)
+		defer timer.Stop()
+
+		select {
+		case <-stopped:
+			logger.Info("grpc server stopped gracefully")
+		case <-timer.C:
+			logger.Warn("grpc server graceful shutdown timeout exceeded, forcing stop")
+			s.Stop()
+			<-stopped
+		}
+
+		return <-serveErr
 	}
 }
