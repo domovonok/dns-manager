@@ -28,12 +28,12 @@ func main() {
 	if err != nil {
 		log.Fatalln("can not initialize logger:", err)
 	}
-	defer func() {
+	defer func(logger *zap.Logger) {
 		err := logger.Sync()
 		if err != nil {
 			log.Println("failed to sync logger:", err)
 		}
-	}()
+	}(logger)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
